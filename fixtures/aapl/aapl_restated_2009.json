@@ -1,0 +1,7 @@
+{
+  "company":"Apple Inc.","cik":320193,"period_end":"2009-09-26",
+  "facts":[
+    {"concept":"net_income","raw_concept":"NetIncomeLoss","value":5704000000,"unit":"USD","filed_at":"2009-10-27T00:00:00Z","accession":"0001193125-09-214859","form":"10-K","source":"https://www.sec.gov/Archives/edgar/data/320193/000119312509214859/d10k.htm"},
+    {"concept":"net_income","raw_concept":"NetIncomeLoss","value":8235000000,"unit":"USD","filed_at":"2010-01-25T00:00:00Z","accession":"0001193125-10-012091","form":"10-K/A","source":"https://www.sec.gov/Archives/edgar/data/320193/000119312510012091/d10ka.htm"}
+  ]
+}

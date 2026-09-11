@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hypothesis/
+.coverage
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.DS_Store
+postgres_data/
+airflow/logs/
+logs/*.log
+logs/*.log.*

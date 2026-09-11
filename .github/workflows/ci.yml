@@ -1,0 +1,87 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  # Main suite. Runs against a REAL Postgres service container, not a mock:
+  # the bitemporal guarantees this project exists to provide are enforced by
+  # SQL (tstzrange containment, GiST index, and a UNIQUE NULLS NOT DISTINCT
+  # constraint), and a mock would happily let all three through wrong. This
+  # is not hypothetical — a duplicate-insert bug caused by SQL's default
+  # NULLS DISTINCT semantics passed every unit test and was only caught by
+  # running the loader twice against a real database. Hence RUN_DB_INTEGRATION=1.
+  #
+  # postgres:16 matches docker-compose.yml. Do not downgrade below 15:
+  # UNIQUE NULLS NOT DISTINCT (see sql/schema/001_initial.sql) requires it.
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pit_user
+          POSTGRES_PASSWORD: pit_password
+          POSTGRES_DB: pit_fundamentals
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pit_user -d pit_fundamentals"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package and tooling
+        run: pip install -e ".[test,tooling]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Apply schema
+        run: psql "$DATABASE_URL" -f sql/schema/001_initial.sql
+        env:
+          DATABASE_URL: postgresql://pit_user:pit_password@localhost:5432/pit_fundamentals
+
+      - name: Run test suite (integration tests enabled)
+        run: pytest -q
+        env:
+          RUN_DB_INTEGRATION: "1"
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: pit_fundamentals
+          POSTGRES_USER: pit_user
+          POSTGRES_PASSWORD: pit_password
+
+  # DAG validation in its own job. Airflow is deliberately NOT in the default
+  # test extra — it drags in a large provider tree that has no business in the
+  # main suite's environment — so it gets its own job here and
+  # tests/test_dag_structure.py skips gracefully when it's absent.
+  #
+  # The package IS installed with its real dependencies (not --no-deps):
+  # test_dag_callables_reference_real_orchestration_functions imports
+  # orchestration, which transitively needs psycopg and pydantic-settings.
+  # Verified with `pip check` that this project's pins and Airflow 2.10.3
+  # resolve together cleanly, so no isolation beyond a separate job is needed.
+  dag-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Airflow and the package
+        run: |
+          pip install "apache-airflow==2.10.3" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.3/constraints-3.11.txt"
+          pip install pytest
+          pip install -e .
+
+      - name: Validate DAG structure
+        run: pytest tests/test_dag_structure.py -q

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pit-fundamentals-store"
+version = "0.1.0"
+description = "Point-in-time / bitemporal SEC EDGAR XBRL fundamentals store"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.8,<3",
+  "pydantic-settings>=2.4,<3",
+  "requests>=2.32,<3",
+  "psycopg[binary]>=3.2,<4",
+  "lxml>=5.3,<7",
+]
+[project.optional-dependencies]
+test = ["pytest>=8.3,<10", "hypothesis>=6.115,<7", "pytest-cov>=5,<7"]
+airflow = ["apache-airflow>=2.10,<3"]
+xbrl = ["arelle-release>=2.39,<3"]
+tooling = ["ruff>=0.6,<1"]
+[project.scripts]
+pit-fundamentals = "pit_fundamentals_store.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pit_fundamentals_store"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["integration: requires PostgreSQL", "network: requires SEC network"]
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+[tool.ruff.lint]
+select = ["E","F","I","B","UP"]

@@ -1,0 +1,66 @@
+services:
+  postgres:
+    # postgres:16, not postgres:16-alpine: confirmed via `docker ps` on the
+    # actual target machine that postgres:16 is already pulled and cached
+    # locally (it's what marketdata-lakehouse's own container runs). Using
+    # the same tag means `docker compose up` needs zero network pull here,
+    # sidestepping a real TLS handshake timeout hit trying to pull
+    # postgres:16-alpine from Docker Hub. Functionally equivalent for this
+    # project's purposes (docker-entrypoint-initdb.d, pg_isready) — only
+    # the base OS differs.
+    image: postgres:16
+    environment:
+      POSTGRES_DB: pit_fundamentals
+      POSTGRES_USER: pit_user
+      POSTGRES_PASSWORD: pit_password
+    # Host port 5433, not 5432: this repo's sibling project,
+    # marketdata-lakehouse, also runs a postgres:16 container mapped to
+    # host 5432 (see its own docker-compose.yml) — running both stacks at
+    # once collides. Confirmed against a real run: pit's own container
+    # failed to bind while marketdata-lakehouse's was already listening on
+    # 5432, and pit's tests connected to THAT container instead, with the
+    # wrong credentials ("password authentication failed for user
+    # pit_user"). Container-internal port stays 5432 (see POSTGRES_PORT
+    # below and the AIRFLOW__DATABASE__SQL_ALCHEMY_CONN line) — only the
+    # host-side mapping changes, so nothing inside the Docker network needs
+    # to know about 5433.
+    ports: ["5433:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/schema:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U pit_user -d pit_fundamentals"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  airflow-init:
+    build: .
+    depends_on: {postgres: {condition: service_healthy}}
+    environment: &env
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://pit_user:pit_password@postgres:5432/pit_fundamentals
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      SEC_USER_AGENT: ${SEC_USER_AGENT:-pit-fundamentals-store YourName your.email@example.com}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: pit_fundamentals
+      POSTGRES_USER: pit_user
+      POSTGRES_PASSWORD: pit_password
+      SAMPLE_CIKS: ${SAMPLE_CIKS:-320193}
+      SCHEMA_PATH: /opt/pit/sql/schema/001_initial.sql
+    command: bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Local --lastname Admin --role Admin --email admin@example.com || true"
+  airflow-webserver:
+    build: .
+    depends_on: {airflow-init: {condition: service_completed_successfully}}
+    environment: *env
+    ports: ["8080:8080"]
+    volumes: ["./airflow/dags:/opt/airflow/dags","./logs:/opt/airflow/logs/project","./outputs:/opt/airflow/outputs","./sql:/opt/pit/sql:ro"]
+    command: webserver
+  airflow-scheduler:
+    build: .
+    depends_on: {airflow-init: {condition: service_completed_successfully}}
+    environment: *env
+    volumes: ["./airflow/dags:/opt/airflow/dags","./logs:/opt/airflow/logs/project","./outputs:/opt/airflow/outputs","./sql:/opt/pit/sql:ro"]
+    command: scheduler
+volumes:
+  postgres_data:

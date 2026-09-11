@@ -1,0 +1,4 @@
+AAPL PIT demo
+Before: 5704000000 via 0001193125-09-214859
+After: 8235000000 via 0001193125-10-012091
+Illustrative P/E before=29.75x after=20.60x

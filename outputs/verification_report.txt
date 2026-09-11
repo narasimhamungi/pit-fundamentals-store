@@ -1,0 +1,25 @@
+VERIFICATION REPORT
+===================
+
+Date: 2026-09-07
+
+Actual local verification performed:
+- Python source compileall: PASS
+- Canonical concept parser smoke test: PASS
+- Temporal restatement reference test: PASS
+- AAPL deterministic PIT demonstration: PASS
+- pytest: 4 passed, 2 skipped
+  - 1 skip: Hypothesis not installed in the execution environment
+  - 1 skip: PostgreSQL integration test requires RUN_DB_INTEGRATION=1 and a running PostgreSQL instance
+
+AAPL demo output:
+- Before 2010-01-25 amendment: net income = $5.704bn, accession 0001193125-09-214859
+- After 2010-01-25 amendment: net income = $8.235bn, accession 0001193125-10-012091
+- Illustrative P/E with fixed $190 price and 893m shares: 29.75x -> 20.60x
+
+Infrastructure limitation:
+- Docker is not installed in this execution environment, so PostgreSQL/Airflow/Docker clean-machine execution could not be performed here.
+- Network package installation was unavailable, so the Hypothesis dependency could not be installed locally.
+- No live SEC ingestion result is claimed in this report.
+
+The repository therefore does NOT claim full end-to-end infrastructure verification. Docker/CI verification is documented for the user's machine.
