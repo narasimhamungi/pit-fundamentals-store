@@ -37,12 +37,11 @@ $$;
 
 -- Named fundamentals_LATEST, deliberately not fundamentals_asof. This view
 -- returns the most recently filed version of each fact — the restated,
--- current-best value. That is the OPPOSITE of point-in-time. It previously
--- shared the name `fundamentals_asof` with the function above (legal in
--- Postgres, since functions and relations are separate namespaces), which
--- meant `SELECT * FROM fundamentals_asof` silently returned the
--- look-ahead-biased answer to anyone who assumed the name meant what it
--- says. Use this for "what does Apple's FY2009 net income look like today";
+-- current-best value. That is the OPPOSITE of point-in-time. Giving it the
+-- function's name would be legal in Postgres (functions and relations are
+-- separate namespaces), but `SELECT * FROM fundamentals_asof` would then
+-- silently return the look-ahead-biased answer to anyone who assumed the
+-- name meant what it says. Use this for "what does Apple's FY2009 net income look like today";
 -- use fundamentals_asof(cik, concept, as_of) for "what was knowable on date X".
 CREATE OR REPLACE VIEW fundamentals_latest AS
 SELECT DISTINCT ON(cik,concept,period_start,period_end,unit) *

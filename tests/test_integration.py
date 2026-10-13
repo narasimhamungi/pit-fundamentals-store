@@ -89,15 +89,14 @@ def test_postgres():
 
 @pytest.mark.integration
 def test_load_is_idempotent_with_null_period_start(clean_facts):
-    """Regression test for a real bug found against live Postgres.
+    """Re-loading instant facts must not duplicate them.
 
     period_start IS NULL for every instant fact (balance-sheet items).
-    Under SQL's default NULLS DISTINCT semantics NULL != NULL, so the
-    original plain UNIQUE constraint never fired for these rows and
-    ON CONFLICT DO NOTHING silently inserted a duplicate on every re-run —
-    turning 2 rows into 4, and doubling every point-in-time query result.
-    The schema now uses UNIQUE NULLS NOT DISTINCT. If that is ever
-    reverted, this test fails.
+    Under SQL's default NULLS DISTINCT semantics NULL != NULL, so a plain
+    UNIQUE constraint never fires for these rows and ON CONFLICT DO NOTHING
+    inserts a duplicate on every re-run — turning 2 rows into 4 and doubling
+    every point-in-time query result. The schema uses UNIQUE NULLS NOT
+    DISTINCT; if that is ever reverted, this test fails.
     """
     _require_db()
     from pit_fundamentals_store.database import BitemporalLoader, connection
@@ -179,8 +178,7 @@ def test_knowledge_time_has_no_gap_or_overlap_at_the_restatement_boundary(clean_
 def test_fundamentals_latest_returns_restated_not_point_in_time(clean_facts):
     """fundamentals_latest is the current-best view — it must return the
     restated figure. This is the look-ahead-biased answer by design; the
-    test exists to pin the distinction from fundamentals_asof(), since the
-    two previously shared a name."""
+    test pins the distinction from fundamentals_asof()."""
     _require_db()
     from pit_fundamentals_store.database import BitemporalLoader, connection
     from pit_fundamentals_store.temporal import build_temporal_versions

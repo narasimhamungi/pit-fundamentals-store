@@ -13,14 +13,10 @@ services:
       POSTGRES_DB: pit_fundamentals
       POSTGRES_USER: pit_user
       POSTGRES_PASSWORD: pit_password
-    # Host port 5433, not 5432: this repo's sibling project,
-    # marketdata-lakehouse, also runs a postgres:16 container mapped to
-    # host 5432 (see its own docker-compose.yml) — running both stacks at
-    # once collides. Confirmed against a real run: pit's own container
-    # failed to bind while marketdata-lakehouse's was already listening on
-    # 5432, and pit's tests connected to THAT container instead, with the
-    # wrong credentials ("password authentication failed for user
-    # pit_user"). Container-internal port stays 5432 (see POSTGRES_PORT
+    # Host port 5433, not 5432: the sibling project marketdata-lakehouse
+    # maps its postgres:16 container to host 5432, so running both stacks
+    # at once would collide (and tests could silently connect to the wrong
+    # database). Container-internal port stays 5432 (see POSTGRES_PORT
     # below and the AIRFLOW__DATABASE__SQL_ALCHEMY_CONN line) — only the
     # host-side mapping changes, so nothing inside the Docker network needs
     # to know about 5433.

@@ -3,7 +3,7 @@
 SELECT * FROM fundamentals_asof(320193,'net_income','2009-12-01T00:00:00Z');
 
 -- After the restatement -> 8,235,000,000. Same company, same fiscal period,
--- different answer depending only on when you asked. This is the whole point.
+-- different answer depending only on the as-of date.
 SELECT * FROM fundamentals_asof(320193,'net_income','2010-02-01T00:00:00Z');
 
 -- Current-best (restated) view, for contrast. NOT point-in-time: this always

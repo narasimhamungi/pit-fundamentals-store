@@ -1,8 +1,10 @@
 # pit-fundamentals-store
 
+[![CI](https://github.com/narasimhamungi/pit-fundamentals-store/actions/workflows/ci.yml/badge.svg)](https://github.com/narasimhamungi/pit-fundamentals-store/actions/workflows/ci.yml)
+
 **Point-in-Time / Bitemporal SEC EDGAR XBRL Fundamentals Store**
 
-A portfolio-grade Data Engineering project that answers:
+A bitemporal store of SEC EDGAR XBRL fundamentals that answers:
 
 > **What did we know about a company's fundamentals as of a particular historical date?**
 
@@ -45,16 +47,17 @@ SEC EDGAR full index / submissions / RSS
 
 Airflow is the orchestration layer. Kafka is intentionally excluded because the EDGAR filing feed does not justify that operational complexity for this workload.
 
-## Trellis design reference
+## Concept mapping design
 
-Trellis was inspected but not modified or imported. Its useful pattern was:
+The mapping follows the alias-chain pattern used in [trellis](https://github.com/narasimhamungi/trellis)
+(reimplemented here, not imported):
 
 1. explicit canonical concepts;
 2. multiple known XBRL aliases per concept;
 3. querying all known aliases rather than treating the first tag as globally authoritative; and
 4. retaining the raw matched concept for provenance.
 
-This project reimplements that design in `src/pit_fundamentals_store/mapping.py`.
+See `src/pit_fundamentals_store/mapping.py`.
 
 ## Repository structure
 
@@ -66,6 +69,9 @@ pit-fundamentals-store/
 │   ├── logging_config.py          # rotating persistent logs
 │   ├── models.py                 # typed data contracts
 │   ├── sec.py                    # SEC client
+│   ├── full_index.py             # EDGAR full-index filing discovery
+│   ├── universe.py               # ticker -> CIK resolution
+│   ├── orchestration.py          # callables the Airflow DAGs run
 │   ├── parsing.py                # XBRL-derived fact normalization
 │   ├── arelle_adapter.py         # optional raw-instance Arelle validation
 │   ├── mapping.py                # canonical concept rules
@@ -92,7 +98,7 @@ pit-fundamentals-store/
 ### 1. Clone
 
 ```bash
-git clone <your-github-url>/pit-fundamentals-store.git
+git clone https://github.com/narasimhamungi/pit-fundamentals-store.git
 cd pit-fundamentals-store
 ```
 
@@ -355,37 +361,24 @@ The demonstration also calculates an illustrative P/E using the same price/share
 
 ## Testing
 
-### Unit / deterministic core
-
 ```bash
-pytest tests/test_core.py -q
+pytest -q                                              # core, property and universe tests
+RUN_DB_INTEGRATION=1 pytest tests/test_integration.py -q   # needs a running PostgreSQL
 ```
 
-### Property-based PIT invariant
-
-The test uses Hypothesis when the test extra is installed and checks:
-
-```text
-every returned fact has filed_at <= as_of
-```
-
-### Integration
-
-```bash
-RUN_DB_INTEGRATION=1 pytest tests/test_integration.py -q
-```
-
-The integration test is intentionally opt-in so ordinary CI does not depend on a live PostgreSQL instance.
+- **Property-based PIT invariant** (Hypothesis): every returned fact has `filed_at <= as_of`.
+- **PostgreSQL integration**: idempotent re-loads, including instant facts whose `period_start` is NULL
+  (the schema uses `UNIQUE NULLS NOT DISTINCT`, since a plain `UNIQUE` lets NULL-keyed duplicates
+  through); `fundamentals_asof` returning the value knowable at each date; no gap or overlap in
+  knowledge time at the restatement boundary; `fundamentals_latest` returning the restated figure.
 
 ### CI
 
-`.github/workflows/ci.yml` runs:
+`.github/workflows/ci.yml` runs two jobs on every push:
 
-```text
-install
--> ruff
--> pytest
-```
+- **test**: ruff, the schema applied to a `postgres:16` service container, then the full suite with
+  the integration tests enabled;
+- **dag-validation**: `tests/test_dag_structure.py` in a separate environment with Airflow 2.10.3.
 
 No SEC credentials or live data are required for CI.
 
@@ -436,7 +429,7 @@ accession
 source URL
 ```
 
-## Red-team considerations
+## Failure modes guarded against
 
 The design explicitly checks for:
 
@@ -455,10 +448,10 @@ Material design decisions are recorded in `docs/decisions.md`.
 
 1. The canonical concept set is intentionally small, not a complete us-gaap ontology.
 2. SEC companyfacts is the scalable normalized XBRL-derived path; Arelle is the raw-instance validation path.
-3. The current normalized model is aimed at consolidated fundamentals and does not yet model every XBRL dimensional context.
+3. The normalized model covers consolidated fundamentals; XBRL dimensional contexts (segments, members) are out of scope.
 4. A historical S&P 500 universe must be supplied as dated membership data for a true historical constituent backfill.
 5. Live SEC ingestion is rate-limited and should be performed in controlled batches.
-6. Full Docker/PostgreSQL/Airflow verification requires Docker; the current development environment did not provide Docker.
+6. Committed evidence covers the frozen AAPL fixture and CI. Live SEC ingestion runs are not recorded in `outputs/`.
 
 ## Exact operational command reference
 
@@ -496,25 +489,14 @@ tail -f logs/pit_fundamentals_store.log
 docker compose down
 ```
 
-## Portfolio evidence
+## Evidence
 
-Only generated evidence should be placed under `outputs/`. The current deterministic evidence file was generated locally from the frozen AAPL fixture.
+- `outputs/aapl_pit_demo.txt`: the AAPL restatement demo, generated from the frozen fixture.
+- CI: unit, property and PostgreSQL integration tests, plus DAG structure validation.
 
-Target evidence for a full Docker run:
+## Related repositories
 
-1. Airflow green DAG run;
-2. property-based test output;
-3. database row counts;
-4. PIT query before/after amendment;
-5. AAPL walkthrough;
-6. logging evidence;
-7. CI success.
-
-No screenshots, row counts or CI results should be claimed unless actually produced.
-
-## Related portfolio sequence
-
-1. `marketdata-lakehouse` — multi-source market data and reconciliation.
-2. **`pit-fundamentals-store`** — point-in-time fundamentals and restatement integrity.
-3. `quant-data-sdk` — local quant-researcher-facing API and SDK.
+1. [marketdata-lakehouse](https://github.com/narasimhamungi/marketdata-lakehouse) — multi-source market data and reconciliation.
+2. **pit-fundamentals-store** — point-in-time fundamentals and restatement integrity.
+3. [quant-data-sdk](https://github.com/narasimhamungi/quant-data-sdk) — research-facing Python SDK over both stores.
 

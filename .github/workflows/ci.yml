@@ -5,10 +5,9 @@ jobs:
   # Main suite. Runs against a REAL Postgres service container, not a mock:
   # the bitemporal guarantees this project exists to provide are enforced by
   # SQL (tstzrange containment, GiST index, and a UNIQUE NULLS NOT DISTINCT
-  # constraint), and a mock would happily let all three through wrong. This
-  # is not hypothetical — a duplicate-insert bug caused by SQL's default
-  # NULLS DISTINCT semantics passed every unit test and was only caught by
-  # running the loader twice against a real database. Hence RUN_DB_INTEGRATION=1.
+  # constraint), and a mock would let all three through wrong: e.g. SQL's
+  # default NULLS DISTINCT semantics allow duplicate inserts that only a
+  # second load against a real database exposes. Hence RUN_DB_INTEGRATION=1.
   #
   # postgres:16 matches docker-compose.yml. Do not downgrade below 15:
   # UNIQUE NULLS NOT DISTINCT (see sql/schema/001_initial.sql) requires it.
